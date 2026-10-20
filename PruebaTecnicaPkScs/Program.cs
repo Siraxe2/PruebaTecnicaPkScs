@@ -1,7 +1,16 @@
+using PruebaTecnicaPkScs.Services;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
+
+// Configuracion de cliente Http
+builder.Services.AddHttpClient<PokeApiService>(client =>
+{
+    client.BaseAddress = new Uri("https://pokeapi.co/api/v2/");
+    client.Timeout = TimeSpan.FromSeconds(15);
+});
 
 var app = builder.Build();
 
