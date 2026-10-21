@@ -22,11 +22,13 @@ namespace PruebaTecnicaPkScs.Controllers
 
         public async Task<IActionResult> Index(
             string? name,
+            string? species,
             CancellationToken cancellationToken)
         {
             var model = new PokemonIndexViewModel
             {
-                Name = name?.Trim() ?? string.Empty
+                Name = name?.Trim() ?? string.Empty,
+                SelectedSpecies = species?.Trim() ?? string.Empty
             };
 
             try
@@ -34,7 +36,10 @@ namespace PruebaTecnicaPkScs.Controllers
                 var catalog = await _pokeApiService
                     .GetPokemonCatalogAsync(cancellationToken);
 
-                if (catalog is null)
+                var speciesCatalog = await _pokeApiService
+                    .GetPokemonSpeciesListAsync(cancellationToken);
+
+                if (catalog is null || speciesCatalog is null)
                 {
                     ViewData["Error"] =
                         "La respuesta esta vacia.";
@@ -42,14 +47,60 @@ namespace PruebaTecnicaPkScs.Controllers
                     return View(model);
                 }
 
+                model.SpeciesNames = speciesCatalog.Results
+                    .Select(item => item.Name)
+                    .OrderBy(name => name)
+                    .ToList();
+
                 var query = catalog.Results.AsEnumerable();
 
+                // Aplicar el filtro por nombre.
                 if (!string.IsNullOrWhiteSpace(model.Name))
                 {
                     query = query.Where(pokemon =>
                         pokemon.Name.Contains(
                             model.Name,
                             StringComparison.OrdinalIgnoreCase));
+                }
+
+                // Aplicar el filtro por especie.
+                if (!string.IsNullOrWhiteSpace(model.SelectedSpecies))
+                {
+                    var canonicalSpeciesName = model.SpeciesNames
+                        .FirstOrDefault(item =>
+                            item.Equals(
+                                model.SelectedSpecies,
+                                StringComparison.OrdinalIgnoreCase));
+
+                    if (canonicalSpeciesName is null)
+                    {
+                        ViewData["Error"] =
+                            "La especie seleccionada no es valida.";
+
+                        return View(model);
+                    }
+
+                    model.SelectedSpecies = canonicalSpeciesName;
+
+                    var speciesDetails = await _pokeApiService
+                        .GetPokemonSpeciesDetailsAsync(
+                            canonicalSpeciesName,
+                            cancellationToken);
+
+                    if (speciesDetails is null)
+                    {
+                        ViewData["Error"] =
+                            "No fue posible obtener los detalles de la especie.";
+
+                        return View(model);
+                    }
+
+                    var varietyNames = speciesDetails.Varieties
+                        .Select(variety => variety.Pokemon.Name)
+                        .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+                    query = query.Where(pokemon =>
+                        varietyNames.Contains(pokemon.Name));
                 }
 
                 var matches = query.ToList();

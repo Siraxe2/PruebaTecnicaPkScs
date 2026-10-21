@@ -8,6 +8,8 @@ namespace PruebaTecnicaPkScs.Services
     {
         private const string PokemonCatalogCacheKey = "pokemon-catalog";
 
+        private const string PokemonSpeciesCatalogCacheKey = "pokemon-species-catalog";
+
         private readonly HttpClient _httpClient;
         private readonly IMemoryCache _memoryCache;
 
@@ -66,6 +68,84 @@ namespace PruebaTecnicaPkScs.Services
             }
 
             return catalog;
+        }
+
+        public async Task<PokemonSpeciesListResponse?> GetPokemonSpeciesListAsync(
+        CancellationToken cancellationToken = default)
+        {
+            if (_memoryCache.TryGetValue(
+                    PokemonSpeciesCatalogCacheKey,
+                    out PokemonSpeciesListResponse? cached)
+                && cached is not null)
+            {
+                return cached;
+            }
+
+            // Obtener el total de especies registradas.
+            var summary = await _httpClient
+                .GetFromJsonAsync<PokemonSpeciesListResponse>(
+                    "pokemon-species?limit=1&offset=0",
+                    cancellationToken);
+
+            if (summary is null || summary.Count <= 0)
+            {
+                return summary;
+            }
+
+            // Obtener el listado completo para el dropdown.
+            var speciesCatalog = await _httpClient
+                .GetFromJsonAsync<PokemonSpeciesListResponse>(
+                    $"pokemon-species?limit={summary.Count}&offset=0",
+                    cancellationToken);
+
+            if (speciesCatalog is not null)
+            {
+                _memoryCache.Set(
+                    PokemonSpeciesCatalogCacheKey,
+                    speciesCatalog,
+                    TimeSpan.FromMinutes(30));
+            }
+
+            return speciesCatalog;
+        }
+
+        public async Task<PokemonSpeciesDetails?> GetPokemonSpeciesDetailsAsync(
+            string speciesName,
+            CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(speciesName))
+            {
+                return null;
+            }
+
+            string cacheKey =
+                $"pokemon-species-details-{speciesName.ToLowerInvariant()}";
+
+            if (_memoryCache.TryGetValue(
+                    cacheKey,
+                    out PokemonSpeciesDetails? cached)
+                && cached is not null)
+            {
+                return cached;
+            }
+
+            string endpoint =
+                $"pokemon-species/{Uri.EscapeDataString(speciesName)}/";
+
+            var details = await _httpClient
+                .GetFromJsonAsync<PokemonSpeciesDetails>(
+                    endpoint,
+                    cancellationToken);
+
+            if (details is not null)
+            {
+                _memoryCache.Set(
+                    cacheKey,
+                    details,
+                    TimeSpan.FromMinutes(30));
+            }
+
+            return details;
         }
     }
 }
