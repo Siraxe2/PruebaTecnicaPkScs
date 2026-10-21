@@ -1,0 +1,35 @@
+﻿@model PruebaTecnicaPkScs.Models.PokemonListResponse
+
+@{
+    ViewData["Title"] = "Pokémones";
+}
+
+<div class="container py-4">
+    <h1>Pokémones</h1>
+
+    @if (ViewData["Error"] is string error)
+    {
+        <div class="alert alert-danger" role="alert">
+            @error
+        </div>
+    }
+    else
+    {
+        <p>
+            Pokémones recibidos:
+            <strong>@Model.Results.Count</strong> || 
+
+            Total de la API:
+            <strong>@Model.Count</strong>
+        </p>
+
+        <ul class="list-group">
+            @foreach (var pokemon in Model.Results)
+            {
+                <li class="list-group-item text-capitalize">
+                    @pokemon.Name
+                </li>
+            }
+        </ul>
+    }
+</div>
