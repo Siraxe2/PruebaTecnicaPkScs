@@ -7,6 +7,8 @@ builder.Services.AddControllersWithViews();
 
 builder.Services.AddMemoryCache();
 
+builder.Services.AddScoped<ExcelExportService>();
+
 // Configuracion de cliente Http
 builder.Services.AddHttpClient<PokeApiService>(client =>
 {

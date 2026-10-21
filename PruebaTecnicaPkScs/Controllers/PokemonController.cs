@@ -12,12 +12,16 @@ namespace PruebaTecnicaPkScs.Controllers
         private readonly PokeApiService _pokeApiService;
         private readonly ILogger<PokemonController> _logger;
 
+        private readonly ExcelExportService _excelExportService;
+
         public PokemonController(
             PokeApiService pokeApiService,
-            ILogger<PokemonController> logger)
+            ILogger<PokemonController> logger,
+            ExcelExportService excelExportService)
         {
             _pokeApiService = pokeApiService;
             _logger = logger;
+            _excelExportService = excelExportService;
         }
 
         public async Task<IActionResult> Details(
@@ -219,6 +223,146 @@ namespace PruebaTecnicaPkScs.Controllers
             }
 
             return View(model);
+        }
+
+        public async Task<IActionResult> ExportExcel(
+        string? name,
+        string? species,
+        int page = 1,
+        CancellationToken cancellationToken = default)
+        {
+            name = name?.Trim();
+            species = species?.Trim();
+
+            try
+            {
+                var catalog = await _pokeApiService
+                    .GetPokemonCatalogAsync(cancellationToken);
+
+                if (catalog is null)
+                {
+                    return StatusCode(
+                        502,
+                        "No fue posible obtener el catalogo de Pokémon.");
+                }
+
+                IEnumerable<PokemonApiItem> query = catalog.Results;
+
+                // Aplicar el filtro por nombre.
+                if (!string.IsNullOrWhiteSpace(name))
+                {
+                    query = query.Where(pokemon =>
+                        pokemon.Name.Contains(
+                            name,
+                            StringComparison.OrdinalIgnoreCase));
+                }
+
+                string? canonicalSpeciesName = null;
+
+                // Aplicar el filtro por especie.
+                if (!string.IsNullOrWhiteSpace(species))
+                {
+                    var speciesCatalog = await _pokeApiService
+                        .GetPokemonSpeciesListAsync(cancellationToken);
+
+                    canonicalSpeciesName = speciesCatalog?.Results
+                        .FirstOrDefault(item =>
+                            item.Name.Equals(
+                                species,
+                                StringComparison.OrdinalIgnoreCase))
+                        ?.Name;
+
+                    if (canonicalSpeciesName is null)
+                    {
+                        return BadRequest(
+                            "La especie seleccionada no es valida.");
+                    }
+
+                    var speciesDetails = await _pokeApiService
+                        .GetPokemonSpeciesDetailsAsync(
+                            canonicalSpeciesName,
+                            cancellationToken);
+
+                    if (speciesDetails is null)
+                    {
+                        return StatusCode(
+                            502,
+                            "No fue posible obtener los detalles de la especie.");
+                    }
+
+                    var varietyNames = speciesDetails.Varieties
+                        .Select(variety => variety.Pokemon.Name)
+                        .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+                    query = query.Where(pokemon =>
+                        varietyNames.Contains(pokemon.Name));
+                }
+
+                // Obtener todas las coincidencias antes de paginar.
+                var matches = query.ToList();
+
+                int pageSize = 20;
+
+                int totalPages = (int)Math.Ceiling(
+                    matches.Count / (double)pageSize);
+
+                // Mantener la página dentro del rango válido.
+                int currentPage = totalPages == 0
+                    ? 1
+                    : Math.Min(Math.Max(page, 1), totalPages);
+
+                int skip = (currentPage - 1) * pageSize;
+
+                var visiblePokemon = matches
+                    .Skip(skip)
+                    .Take(pageSize)
+                    .ToList();
+
+                byte[] fileBytes = _excelExportService.ExportPokemon(
+                    visiblePokemon,
+                    name,
+                    canonicalSpeciesName,
+                    currentPage,
+                    matches.Count);
+
+                string fileName = $"pokemon-pagina-{currentPage}.xlsx";
+
+                return File(
+                    fileBytes,
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    fileName);
+            }
+            catch (HttpRequestException ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Error al obtener los datos para exportar Pokémon.");
+
+                return StatusCode(
+                    503,
+                    "No fue posible conectar con PokeAPI.");
+            }
+            catch (OperationCanceledException ex)
+                when (!cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "La consulta excedio el tiempo de espera al exportar.");
+
+                return StatusCode(
+                    504,
+                    "La consulta tardo demasiado. Intentalo nuevamente.");
+            }
+            catch (JsonException ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "No fue posible interpretar los datos para exportar.");
+
+                return StatusCode(
+                    502,
+                    "La respuesta de PokeAPI no tiene el formato esperado.");
+            }
         }
     }
 }

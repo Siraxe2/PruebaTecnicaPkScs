@@ -77,6 +77,31 @@
     }
     else
     {
+                @if (Model.Pokemon.Count > 0)
+        {
+            <form asp-controller="Pokemon"
+                  asp-action="ExportExcel"
+                  method="get"
+                  class="mb-4">
+
+                <input type="hidden"
+                       name="name"
+                       value="@Model.Name" />
+
+                <input type="hidden"
+                       name="species"
+                       value="@Model.SelectedSpecies" />
+
+                <input type="hidden"
+                       name="page"
+                       value="@Model.CurrentPage" />
+
+                <button type="submit" class="btn btn-success">
+                    Exportar página a Excel
+                </button>
+            </form>
+        }
+
         <p>
             @if (!string.IsNullOrWhiteSpace(Model.Name))
             {
