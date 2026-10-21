@@ -22,8 +22,9 @@ namespace PruebaTecnicaPkScs.Controllers
 
         public async Task<IActionResult> Index(
             string? name,
-            string? species,
-            CancellationToken cancellationToken)
+            string? species, 
+            int page = 1,
+            CancellationToken cancellationToken = default)
         {
             var model = new PokemonIndexViewModel
             {
@@ -108,8 +109,22 @@ namespace PruebaTecnicaPkScs.Controllers
                 model.TotalPokemon = catalog.Count;
                 model.TotalMatches = matches.Count;
 
-                // La paginacion manual se implementara despues.
-                model.Pokemon = matches.Take(20).ToList();
+                // Calcular cuàntas paginas hay despues de filtrar.
+                model.TotalPages = (int)Math.Ceiling(
+                    model.TotalMatches / (double)model.PageSize);
+
+                // Mantener la pagina dentro de los limites validos.
+                model.CurrentPage = model.TotalPages == 0
+                    ? 1
+                    : Math.Min(Math.Max(page, 1), model.TotalPages);
+
+                // Obtener unicamente los registros de la pagina actual.
+                int skip = (model.CurrentPage - 1) * model.PageSize;
+
+                model.Pokemon = matches
+                    .Skip(skip)
+                    .Take(model.PageSize)
+                    .ToList();
 
                 return View(model);
             }
