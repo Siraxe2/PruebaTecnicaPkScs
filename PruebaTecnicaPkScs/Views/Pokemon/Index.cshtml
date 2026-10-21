@@ -7,6 +7,20 @@
 <div class="container py-4">
     <h1 class="mb-2">Pokémones</h1>
 
+    @if (TempData["EmailSuccess"] is string emailSuccess)
+    {
+        <div class="alert alert-success" role="status">
+            @emailSuccess
+        </div>
+    }
+
+    @if (TempData["EmailError"] is string emailError)
+    {
+        <div class="alert alert-danger" role="alert">
+            @emailError
+        </div>
+    }
+
     <form asp-controller="Pokemon"
           asp-action="Index"
           method="get"
@@ -77,29 +91,77 @@
     }
     else
     {
-                @if (Model.Pokemon.Count > 0)
+        @if (Model.Pokemon.Count > 0)
         {
-            <form asp-controller="Pokemon"
-                  asp-action="ExportExcel"
-                  method="get"
-                  class="mb-4">
+            <div class="row g-3 mb-4">
 
-                <input type="hidden"
-                       name="name"
-                       value="@Model.Name" />
+                <div class="col-md-5">
+                    <form asp-controller="Pokemon"
+                          asp-action="ExportExcel"
+                          method="get"
+                          class="border rounded p-3 h-100">
 
-                <input type="hidden"
-                       name="species"
-                       value="@Model.SelectedSpecies" />
+                        <input type="hidden"
+                               name="name"
+                               value="@Model.Name" />
 
-                <input type="hidden"
-                       name="page"
-                       value="@Model.CurrentPage" />
+                        <input type="hidden"
+                               name="species"
+                               value="@Model.SelectedSpecies" />
 
-                <button type="submit" class="btn btn-success">
-                    Exportar página a Excel
-                </button>
-            </form>
+                        <input type="hidden"
+                               name="page"
+                               value="@Model.CurrentPage" />
+
+                        <h2 class="h6">Exportación</h2>
+
+                        <br />
+
+                        <button type="submit"
+                                class="btn btn-success">
+                            Exportar a Excel
+                        </button>
+                    </form>
+                </div>
+
+                <div class="col-md-7">
+                    <form asp-controller="Pokemon"
+                          asp-action="SendPageEmail"
+                          method="post"
+                          class="border rounded p-3 h-100">
+
+                        <input type="hidden"
+                               name="name"
+                               value="@Model.Name" />
+
+                        <input type="hidden"
+                               name="species"
+                               value="@Model.SelectedSpecies" />
+
+                        <input type="hidden"
+                               name="page"
+                               value="@Model.CurrentPage" />
+
+                        <label for="recipientEmailPage"
+                               class="form-label">
+                            Correo del destinatario
+                        </label>
+
+                        <input type="email"
+                               id="recipientEmailPage"
+                               name="recipientEmail"
+                               class="form-control mb-3"
+                               maxlength="254"
+                               required />
+
+                        <button type="submit"
+                                class="btn btn-primary">
+                            Enviar página actual
+                        </button>
+                    </form>
+                </div>
+
+            </div>
         }
 
         <p>
@@ -132,40 +194,83 @@
                 @foreach (var pokemon in Model.Pokemon)
                 {
                     <div class="col">
-
-                    <a asp-controller="Pokemon"
-                        asp-action="Details"
-                        asp-route-id="@pokemon.Id"
-                        class="text-decoration-none text-reset d-block h-100">
-
                         <div class="card h-100 shadow-sm">
 
-                            <div class="bg-light d-flex
-                                align-items-center
-                                justify-content-center p-3"
-                                 style="height: 180px;">
+                            <a asp-controller="Pokemon"
+                               asp-action="Details"
+                               asp-route-id="@pokemon.Id"
+                               class="text-decoration-none text-reset">
 
-                                <img src="@pokemon.ImageUrl"
-                                     alt="Imagen de @pokemon.Name"
-                                     class="img-fluid"
-                                     style="max-height: 150px;
-                                object-fit: contain;"
-                                     loading="lazy" />
-                            </div>
+                                <div class="bg-light d-flex
+                                    align-items-center justify-content-center p-3"
+                                     style="height: 180px;">
 
-                            <div class="card-body text-center">
-                                <h2 class="card-title h5 text-capitalize">
-                                    @pokemon.Name
-                                </h2>
+                                    <img src="@pokemon.ImageUrl"
+                                         alt="Imagen de @pokemon.Name"
+                                         class="img-fluid"
+                                         style="max-height: 150px;
+                                    object-fit: contain;"
+                                         loading="lazy" />
+                                </div>
 
-                                <p class="text-muted small mb-0">
-                                    N. @pokemon.Id
-                                </p>
+                                <div class="card-body text-center">
+                                    <h2 class="card-title h5 text-capitalize">
+                                        @pokemon.Name
+                                    </h2>
+
+                                    <p class="text-muted small mb-0">
+                                        N. @pokemon.Id
+                                    </p>
+
+                                    <span class="small text-primary">
+                                        Ver detalles
+                                    </span>
+                                </div>
+                            </a>
+
+                            <div class="card-footer bg-white">
+                                <form asp-controller="Pokemon"
+                                      asp-action="SendPokemonEmail"
+                                      method="post">
+
+                                    <input type="hidden"
+                                           name="id"
+                                           value="@pokemon.Id" />
+
+                                    <input type="hidden"
+                                           name="name"
+                                           value="@Model.Name" />
+
+                                    <input type="hidden"
+                                           name="species"
+                                           value="@Model.SelectedSpecies" />
+
+                                    <input type="hidden"
+                                           name="page"
+                                           value="@Model.CurrentPage" />
+
+                                    <div class="mb-2">
+                                        <label for="recipientEmail-@pokemon.Id"
+                                               class="form-label small">
+                                            Correo del destinatario
+                                        </label>
+
+                                        <input type="email"
+                                               id="recipientEmail-@pokemon.Id"
+                                               name="recipientEmail"
+                                               class="form-control form-control-sm"
+                                               maxlength="254"
+                                               required />
+                                    </div>
+
+                                    <button type="submit"
+                                            class="btn btn-outline-primary btn-sm w-100">
+                                        Enviar este Pokémon
+                                    </button>
+                                </form>
                             </div>
 
                         </div>
-
-                    </a>
                     </div>
                 }
             </div>

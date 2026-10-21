@@ -2,6 +2,8 @@
 {
     public class PokemonIndexViewModel
     {
+        public const int DefaultPageSize = 20;
+
         public string Name { get; set; } = string.Empty;
 
         public string SelectedSpecies { get; set; } = string.Empty;
@@ -14,7 +16,7 @@
 
         public int CurrentPage { get; set; } = 1;
 
-        public int PageSize { get; set; } = 20;
+        public int PageSize { get; set; } = DefaultPageSize;
 
         public int TotalPages { get; set; }
 

@@ -1,4 +1,5 @@
 using PruebaTecnicaPkScs.Services;
+using PruebaTecnicaPkScs.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -6,6 +7,11 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllersWithViews();
 
 builder.Services.AddMemoryCache();
+
+builder.Services.Configure<EmailSettings>(
+    builder.Configuration.GetSection("EmailSettings"));
+
+builder.Services.AddScoped<EmailService>();
 
 builder.Services.AddScoped<ExcelExportService>();
 

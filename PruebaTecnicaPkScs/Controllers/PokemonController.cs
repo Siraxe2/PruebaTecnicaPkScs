@@ -14,14 +14,18 @@ namespace PruebaTecnicaPkScs.Controllers
 
         private readonly ExcelExportService _excelExportService;
 
+        private readonly EmailService _emailService;
+
         public PokemonController(
             PokeApiService pokeApiService,
             ILogger<PokemonController> logger,
-            ExcelExportService excelExportService)
+            ExcelExportService excelExportService,
+            EmailService emailService)
         {
             _pokeApiService = pokeApiService;
             _logger = logger;
             _excelExportService = excelExportService;
+            _emailService = emailService;
         }
 
         public async Task<IActionResult> Details(
@@ -301,7 +305,7 @@ namespace PruebaTecnicaPkScs.Controllers
                 // Obtener todas las coincidencias antes de paginar.
                 var matches = query.ToList();
 
-                int pageSize = 20;
+                int pageSize = PokemonIndexViewModel.DefaultPageSize;
 
                 int totalPages = (int)Math.Ceiling(
                     matches.Count / (double)pageSize);
@@ -363,6 +367,243 @@ namespace PruebaTecnicaPkScs.Controllers
                     502,
                     "La respuesta de PokeAPI no tiene el formato esperado.");
             }
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SendPokemonEmail(
+        int id,
+        string? recipientEmail,
+        string? name,
+        string? species,
+        int page = 1,
+        CancellationToken cancellationToken = default)
+        {
+            if (!IsValidEmail(recipientEmail))
+            {
+                TempData["EmailError"] =
+                    "Introduce una dirección de correo valida.";
+
+                return RedirectToAction(
+                    nameof(Index),
+                    new { name, species, page });
+            }
+
+            try
+            {
+                var catalog = await _pokeApiService
+                    .GetPokemonCatalogAsync(cancellationToken);
+
+                var pokemon = catalog?.Results
+                    .FirstOrDefault(item => item.Id == id);
+
+                if (pokemon is null)
+                {
+                    TempData["EmailError"] =
+                        "No se encontro el Pokémon que intentas enviar.";
+
+                    return RedirectToAction(
+                        nameof(Index),
+                        new { name, species, page });
+                }
+
+                await _emailService.SendPokemonEmailAsync(
+                    recipientEmail.Trim(),
+                    new[] { pokemon },
+                    name,
+                    species,
+                    page,
+                    cancellationToken);
+
+                TempData["EmailSuccess"] =
+                    $"Se envio el correo con la información de {pokemon.Name}.";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "No se pudo enviar el correo del Pokémon {PokemonId}.",
+                    id);
+
+                TempData["EmailError"] =
+                    "No se pudo enviar el correo. " +
+                    "Verifica la configuración SMTP y vuelve a intentarlo.";
+            }
+
+            return RedirectToAction(
+                nameof(Index),
+                new { name, species, page });
+        }
+
+        private static bool IsValidEmail(string? email)
+        {
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                return false;
+            }
+
+            try
+            {
+                var address = new System.Net.Mail.MailAddress(email.Trim());
+
+                return address.Address.Equals(
+                    email.Trim(),
+                    StringComparison.OrdinalIgnoreCase);
+            }
+            catch (FormatException)
+            {
+                return false;
+            }
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SendPageEmail(
+        string? recipientEmail,
+        string? name,
+        string? species,
+        int page = 1,
+        CancellationToken cancellationToken = default)
+        {
+            name = name?.Trim();
+            species = species?.Trim();
+
+            if (!IsValidEmail(recipientEmail))
+            {
+                TempData["EmailError"] =
+                    "Introduce una dirección de correo valida.";
+
+                return RedirectToAction(
+                    nameof(Index),
+                    new { name, species, page });
+            }
+
+            try
+            {
+                var catalog = await _pokeApiService
+                    .GetPokemonCatalogAsync(cancellationToken);
+
+                if (catalog is null)
+                {
+                    TempData["EmailError"] =
+                        "No fue posible obtener el catalogo de Pokémon.";
+
+                    return RedirectToAction(nameof(Index), new { name, species, page });
+                }
+
+                IEnumerable<PokemonApiItem> query = catalog.Results;
+
+                // Aplicar el filtro por nombre.
+                if (!string.IsNullOrWhiteSpace(name))
+                {
+                    query = query.Where(pokemon =>
+                        pokemon.Name.Contains(
+                            name,
+                            StringComparison.OrdinalIgnoreCase));
+                }
+
+                string? canonicalSpeciesName = null;
+
+                // Aplicar el filtro por especie.
+                if (!string.IsNullOrWhiteSpace(species))
+                {
+                    var speciesCatalog = await _pokeApiService
+                        .GetPokemonSpeciesListAsync(cancellationToken);
+
+                    canonicalSpeciesName = speciesCatalog?.Results
+                        .FirstOrDefault(item =>
+                            item.Name.Equals(
+                                species,
+                                StringComparison.OrdinalIgnoreCase))
+                        ?.Name;
+
+                    if (canonicalSpeciesName is null)
+                    {
+                        TempData["EmailError"] =
+                            "La especie seleccionada no es valida.";
+
+                        return RedirectToAction(
+                            nameof(Index),
+                            new { name, page });
+                    }
+
+                    var speciesDetails = await _pokeApiService
+                        .GetPokemonSpeciesDetailsAsync(
+                            canonicalSpeciesName,
+                            cancellationToken);
+
+                    if (speciesDetails is null)
+                    {
+                        TempData["EmailError"] =
+                            "No fue posible obtener los detalles de la especie.";
+
+                        return RedirectToAction(
+                            nameof(Index),
+                            new { name, species, page });
+                    }
+
+                    var varietyNames = speciesDetails.Varieties
+                        .Select(variety => variety.Pokemon.Name)
+                        .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+                    query = query.Where(pokemon =>
+                        varietyNames.Contains(pokemon.Name));
+                }
+
+                // Calcular las coincidencias antes de paginar.
+                var matches = query.ToList();
+
+                int pageSize = PokemonIndexViewModel.DefaultPageSize;
+
+                int totalPages = (int)Math.Ceiling(
+                    matches.Count / (double)pageSize);
+
+                int currentPage = totalPages == 0
+                    ? 1
+                    : Math.Min(Math.Max(page, 1), totalPages);
+
+                // Recuperar únicamente la página que se está mostrando.
+                var visiblePokemon = matches
+                    .Skip((currentPage - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToList();
+
+                if (visiblePokemon.Count == 0)
+                {
+                    TempData["EmailError"] =
+                        "No hay Pokémon en esta pagina para enviar.";
+
+                    return RedirectToAction(
+                        nameof(Index),
+                        new { name, species = canonicalSpeciesName, page = currentPage });
+                }
+
+                await _emailService.SendPokemonEmailAsync(
+                    recipientEmail.Trim(),
+                    visiblePokemon,
+                    name,
+                    canonicalSpeciesName,
+                    currentPage,
+                    cancellationToken);
+
+                TempData["EmailSuccess"] =
+                    $"Se envio un correo con {visiblePokemon.Count} Pokémones " +
+                    $"de la pagina {currentPage}.";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "No se pudo enviar el correo con la pagina de Pokémon.");
+
+                TempData["EmailError"] =
+                    "No se pudo enviar el correo. " +
+                    "Verifica la configuración SMTP y vuelve a intentarlo.";
+            }
+
+            return RedirectToAction(
+                nameof(Index),
+                new { name, species, page });
         }
     }
 }
