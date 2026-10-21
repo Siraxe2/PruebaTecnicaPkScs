@@ -1,21 +1,44 @@
-﻿@model PruebaTecnicaPkScs.Models.PokemonListResponse
+﻿@model PruebaTecnicaPkScs.Models.PokemonIndexViewModel
 
 @{
     ViewData["Title"] = "Pokémones";
 }
 
 <div class="container py-4">
-    <div class="d-flex justify-content-between
-        align-items-center flex-wrap gap-2 mb-4">
+    <h1 class="mb-2">Pokémones</h1>
 
-        <div>
-            <h1 class="mb-1">Pokémones</h1>
+    <form asp-controller="Pokemon"
+          asp-action="Index"
+          method="get"
+          class="row g-2 mb-4">
+
+        <div class="col-sm-8 col-md-6">
+            <label for="name" class="form-label">
+                Nombre del Pokémon
+            </label>
+
+            <input type="text"
+                   id="name"
+                   name="name"
+                   value="@Model.Name"
+                   class="form-control"
+                   placeholder="" />
         </div>
 
-        <span class="badge bg-primary fs-6">
-            @Model.Results.Count Pokémones
-        </span>
-    </div>
+        <div class="col-auto align-self-end">
+            <button type="submit" class="btn btn-primary">
+                Buscar
+            </button>
+        </div>
+
+        <div class="col-auto align-self-end">
+            <a asp-controller="Pokemon"
+               asp-action="Index"
+               class="btn btn-outline-secondary">
+                Limpiar
+            </a>
+        </div>
+    </form>
 
     @if (ViewData["Error"] is string error)
     {
@@ -23,53 +46,68 @@
             @error
         </div>
     }
-    else if (Model.Results.Count == 0)
-    {
-        <div class="alert alert-info" role="status">
-            No se encontraron Pokémones.
-        </div>
-    }
     else
     {
-        <div class="row row-cols-1 row-cols-sm-2
-            row-cols-md-3 row-cols-lg-4 g-4">
-
-            @foreach (var pokemon in Model.Results)
+        <p>
+            @if (!string.IsNullOrWhiteSpace(Model.Name))
             {
-                <div class="col">
-                    <div class="card h-100 shadow-sm">
-
-                        <div class="bg-light d-flex
-                            align-items-center
-                            justify-content-center p-3"
-                             style="height: 180px;">
-
-                            <img src="@pokemon.ImageUrl"
-                                 alt="Imagen de @pokemon.Name"
-                                 class="img-fluid"
-                                 style="max-height: 150px;
-                            object-fit: contain;"
-                                 loading="lazy" />
-                        </div>
-
-                        <div class="card-body text-center">
-                            <h2 class="card-title h5 text-capitalize">
-                                @pokemon.Name
-                            </h2>
-
-                            <p class="text-muted small mb-0">
-                                N. @pokemon.Id
-                            </p>
-                        </div>
-
-                    </div>
-                </div>
+                <span>
+                    Coincidencias para
+                    <strong>@Model.Name</strong>:
+                </span>
             }
-        </div>
+            else
+            {
+                <span>Pokémones disponibles:</span>
+            }
 
-        <p class="text-muted small mt-4">
-            Total de Pokémones de la API:
-            @Model.Count
+            <strong>@Model.TotalMatches</strong>
         </p>
+
+        @if (Model.TotalMatches == 0)
+        {
+            <div class="alert alert-info" role="status">
+                No se encontraron Pokémones con ese nombre.
+            </div>
+        }
+        else
+        {
+            <div class="row row-cols-1 row-cols-sm-2
+                row-cols-md-3 row-cols-lg-4 g-4">
+
+                @foreach (var pokemon in Model.Pokemon)
+                {
+                    <div class="col">
+                        <div class="card h-100 shadow-sm">
+
+                            <div class="bg-light d-flex
+                                align-items-center
+                                justify-content-center p-3"
+                                 style="height: 180px;">
+
+                                <img src="@pokemon.ImageUrl"
+                                     alt="Imagen de @pokemon.Name"
+                                     class="img-fluid"
+                                     style="max-height: 150px;
+                                object-fit: contain;"
+                                     loading="lazy" />
+                            </div>
+
+                            <div class="card-body text-center">
+                                <h2 class="card-title h5 text-capitalize">
+                                    @pokemon.Name
+                                </h2>
+
+                                <p class="text-muted small mb-0">
+                                    N. @pokemon.Id
+                                </p>
+                            </div>
+
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+
     }
 </div>

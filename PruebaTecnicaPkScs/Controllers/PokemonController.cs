@@ -3,6 +3,7 @@ using PruebaTecnicaPkScs.Models;
 using PruebaTecnicaPkScs.Services;
 using System.Net.Http;
 using System.Text.Json;
+using System.Xml.Linq;
 
 namespace PruebaTecnicaPkScs.Controllers
 {
@@ -20,23 +21,46 @@ namespace PruebaTecnicaPkScs.Controllers
         }
 
         public async Task<IActionResult> Index(
+            string? name,
             CancellationToken cancellationToken)
         {
+            var model = new PokemonIndexViewModel
+            {
+                Name = name?.Trim() ?? string.Empty
+            };
+
             try
             {
-                var response = await _pokeApiService
-                    .GetPokemonListAsync(
-                        cancellationToken: cancellationToken);
+                var catalog = await _pokeApiService
+                    .GetPokemonCatalogAsync(cancellationToken);
 
-                if (response is null)
+                if (catalog is null)
                 {
                     ViewData["Error"] =
                         "La respuesta esta vacia.";
 
-                    return View(new PokemonListResponse());
+                    return View(model);
                 }
 
-                return View(response);
+                var query = catalog.Results.AsEnumerable();
+
+                if (!string.IsNullOrWhiteSpace(model.Name))
+                {
+                    query = query.Where(pokemon =>
+                        pokemon.Name.Contains(
+                            model.Name,
+                            StringComparison.OrdinalIgnoreCase));
+                }
+
+                var matches = query.ToList();
+
+                model.TotalPokemon = catalog.Count;
+                model.TotalMatches = matches.Count;
+
+                // La paginacion manual se implementara despues.
+                model.Pokemon = matches.Take(20).ToList();
+
+                return View(model);
             }
             catch (HttpRequestException ex)
             {
@@ -65,7 +89,7 @@ namespace PruebaTecnicaPkScs.Controllers
                     "No fue posible interpretar los datos recibidos.";
             }
 
-            return View(new PokemonListResponse());
+            return View(model);
         }
     }
 }
