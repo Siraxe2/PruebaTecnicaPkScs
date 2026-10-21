@@ -20,6 +20,69 @@ namespace PruebaTecnicaPkScs.Controllers
             _logger = logger;
         }
 
+        public async Task<IActionResult> Details(
+        int id,
+        CancellationToken cancellationToken)
+        {
+            if (id <= 0)
+            {
+                return NotFound();
+            }
+
+            try
+            {
+                var pokemon = await _pokeApiService
+                    .GetPokemonDetailsAsync(id, cancellationToken);
+
+                if (pokemon is null)
+                {
+                    return NotFound();
+                }
+
+                return View(pokemon);
+            }
+            catch (HttpRequestException ex)
+            {
+                if (ex.StatusCode ==
+                    System.Net.HttpStatusCode.NotFound)
+                {
+                    return NotFound();
+                }
+
+                _logger.LogError(
+                    ex,
+                    "Error al consultar los detalles del Pokémon {PokemonId}.",
+                    id);
+
+                return StatusCode(
+                    503,
+                    "No fue posible consultar PokeAPI en este momento.");
+            }
+            catch (OperationCanceledException ex)
+                when (!cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "La consulta de detalles del Pokémon {PokemonId} excedio el tiempo de espera.",
+                    id);
+
+                return StatusCode(
+                    504,
+                    "La consulta tardo demasiado. Intentalo nuevamente.");
+            }
+            catch (System.Text.Json.JsonException ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Respuesta invalida de PokeAPI para el Pokémon {PokemonId}.",
+                    id);
+
+                return StatusCode(
+                    502,
+                    "No fue posible interpretar la respuesta de PokeAPI.");
+            }
+        }
+
         public async Task<IActionResult> Index(
             string? name,
             string? species, 

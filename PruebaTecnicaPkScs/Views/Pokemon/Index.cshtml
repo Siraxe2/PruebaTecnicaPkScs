@@ -107,6 +107,12 @@
                 @foreach (var pokemon in Model.Pokemon)
                 {
                     <div class="col">
+
+                    <a asp-controller="Pokemon"
+                        asp-action="Details"
+                        asp-route-id="@pokemon.Id"
+                        class="text-decoration-none text-reset d-block h-100">
+
                         <div class="card h-100 shadow-sm">
 
                             <div class="bg-light d-flex
@@ -133,6 +139,8 @@
                             </div>
 
                         </div>
+
+                    </a>
                     </div>
                 }
             </div>

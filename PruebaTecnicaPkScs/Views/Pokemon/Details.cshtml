@@ -1,0 +1,66 @@
+﻿@model PruebaTecnicaPkScs.Models.PokemonDetailResponse
+
+@{
+    ViewData["Title"] = $"Detalles de {Model.Name}";
+}
+
+<div class="container py-4">
+    <a asp-controller="Pokemon"
+       asp-action="Index"
+       class="btn btn-outline-secondary mb-4">
+        ← Volver al listado
+    </a>
+
+    <div class="row justify-content-center">
+        <div class="col-md-9 col-lg-7">
+            <div class="card shadow-sm">
+                <div class="card-body p-4">
+
+                    <div class="text-center mb-4">
+                        @if (!string.IsNullOrWhiteSpace(Model.ImageUrl))
+                        {
+                            <img src="@Model.ImageUrl"
+                                 alt="Imagen de @Model.Name"
+                                 class="img-fluid"
+                                 style="max-height: 280px;"
+                                 loading="lazy" />
+                        }
+
+                        <h1 class="text-capitalize mt-3">
+                            @Model.Name
+                        </h1>
+
+                        <p class="text-muted">
+                            N.º @Model.Id
+                        </p>
+                    </div>
+
+                    <h2 class="h5 mb-3">Informacion general</h2>
+
+                    <dl class="row">
+                        <dt class="col-5">Altura</dt>
+                        <dd class="col-7">
+                            @Model.HeightInMeters.ToString("0.0") m
+                        </dd>
+
+                        <dt class="col-5">Peso</dt>
+                        <dd class="col-7">
+                            @Model.WeightInKilograms.ToString("0.0") kg
+                        </dd>
+
+                        <dt class="col-5">Tipo(s)</dt>
+                        <dd class="col-7">
+                            @foreach (var item in Model.Types)
+                            {
+                                <span class="badge bg-primary me-1 mb-1">
+                                    @item.Type.Name
+                                </span>
+                            }
+                        </dd>
+                    </dl>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

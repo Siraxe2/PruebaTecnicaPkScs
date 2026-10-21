@@ -147,5 +147,40 @@ namespace PruebaTecnicaPkScs.Services
 
             return details;
         }
+
+        public async Task<PokemonDetailResponse?> GetPokemonDetailsAsync(
+        int id,
+        CancellationToken cancellationToken = default)
+        {
+            if (id <= 0)
+            {
+                return null;
+            }
+
+            string cacheKey = $"pokemon-details-{id}";
+
+            if (_memoryCache.TryGetValue(
+                    cacheKey,
+                    out PokemonDetailResponse? cached)
+                && cached is not null)
+            {
+                return cached;
+            }
+
+            var details = await _httpClient
+                .GetFromJsonAsync<PokemonDetailResponse>(
+                    $"pokemon/{id}/",
+                    cancellationToken);
+
+            if (details is not null)
+            {
+                _memoryCache.Set(
+                    cacheKey,
+                    details,
+                    TimeSpan.FromMinutes(30));
+            }
+
+            return details;
+        }
     }
 }
